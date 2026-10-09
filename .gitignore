@@ -1,0 +1,9 @@
+.DS_Store
+*.zip
+*.dmg
+.build/
+.Windows/
+Windows/
+Roblox Overlay.app/
+
+*.app/
