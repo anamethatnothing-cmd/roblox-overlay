@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 APP="Roblox Overlay.app"
-VERSION="${GITHUB_REF_NAME:-v1.4.1}"
+VERSION="${GITHUB_REF_NAME:-v1.4.2}"
 VERSION="${VERSION#v}"
 ARM_BIN="/tmp/RobloxOverlay-arm64-$$"
 X64_BIN="/tmp/RobloxOverlay-x86_64-$$"

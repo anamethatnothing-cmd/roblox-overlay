@@ -377,6 +377,10 @@ final class OverlayAppDelegate: NSObject, NSApplicationDelegate {
     private var activationObserver: NSObjectProtocol?
     private var statusItem: NSStatusItem?
     private var languageObserver: NSObjectProtocol?
+    private var settingsMenuItem: NSMenuItem?
+    private var stopMenuItem: NSMenuItem?
+    private var quitMenuItem: NSMenuItem?
+    private var fallbackControlsWindow: NSWindow?
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureStatusItem()
         languageObserver = NotificationCenter.default.addObserver(forName: .appLanguageDidChange, object: nil, queue: .main) { [weak self] _ in
@@ -400,23 +404,56 @@ final class OverlayAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureStatusItem() {
-        if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
         let language = LanguageManager.shared
+        if statusItem != nil {
+            settingsMenuItem?.title = language.text("설정 열기")
+            stopMenuItem?.title = language.text("화면 보정 중지")
+            quitMenuItem?.title = language.text("앱 종료")
+            return
+        }
+
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "scope", accessibilityDescription: "Roblox Overlay")
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: language.text("설정 열기"), action: #selector(showControls), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: language.text("화면 보정 중지"), action: #selector(stopCapture), keyEquivalent: ""))
+        menu.autoenablesItems = false
+        let settingsItem = NSMenuItem(title: language.text("설정 열기"), action: #selector(showControls), keyEquivalent: "")
+        let stopItem = NSMenuItem(title: language.text("화면 보정 중지"), action: #selector(stopCapture), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: language.text("앱 종료"), action: #selector(quitApp), keyEquivalent: "q"))
-        menu.items.forEach { $0.target = self }
+        let quitItem = NSMenuItem(title: language.text("앱 종료"), action: #selector(quitApp), keyEquivalent: "q")
+        menu.insertItem(settingsItem, at: 0)
+        menu.insertItem(stopItem, at: 1)
+        menu.addItem(quitItem)
+        [settingsItem, stopItem, quitItem].forEach { $0.target = self; $0.isEnabled = true }
         item.menu = menu
         statusItem = item
+        settingsMenuItem = settingsItem
+        stopMenuItem = stopItem
+        quitMenuItem = quitItem
     }
 
     @objc private func showControls() {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first(where: { $0.title == "Roblox Overlay" })?.makeKeyAndOrderFront(nil)
+        let window = NSApp.windows.first(where: { $0.title == "Roblox Overlay" }) ?? fallbackControlsWindow
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        newWindow.title = "Roblox Overlay"
+        newWindow.minSize = NSSize(width: 800, height: 600)
+        newWindow.isReleasedWhenClosed = false
+        newWindow.contentViewController = NSHostingController(
+            rootView: ControlView(settings: OverlayManager.shared.settings, manager: OverlayManager.shared)
+        )
+        newWindow.center()
+        fallbackControlsWindow = newWindow
+        newWindow.makeKeyAndOrderFront(nil)
     }
 
     @objc private func stopCapture() { OverlayManager.shared.stopCapture() }
@@ -652,6 +689,8 @@ struct ControlView: View {
                         .foregroundStyle(section == item ? .white : Color(hex: "A8B5C8"))
                         .padding(.horizontal, 11).padding(.vertical, 10)
                         .background(section == item ? Color(hex: "1B2D42") : .clear, in: RoundedRectangle(cornerRadius: 9))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }.buttonStyle(.plain)
                 }
             }
